@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: juice-shop
+  labels: { app: juice-shop }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: juice-shop }
+  template:
+    metadata:
+      labels: { app: juice-shop }
+    spec:
+      containers:
+        - name: juice-shop
+          image: 192.168.3.10:5000/devops-08/juice-shop:v1.0.0
+          ports: [{ containerPort: 3000 }]
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits:   { cpu: 500m, memory: 512Mi }
+          readinessProbe:
+            httpGet: { path: /, port: 3000 }
+            initialDelaySeconds: 20
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /, port: 3000 }
+            initialDelaySeconds: 60
+            periodSeconds: 20
