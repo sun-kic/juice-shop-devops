@@ -13,7 +13,6 @@ pipeline {
     timeout(time: 40, unit: 'MINUTES')     // a cold build is ~10 min; leave headroom for the queue
     disableConcurrentBuilds()
     buildDiscarder(logRotator(numToKeepStr: '20'))
-    timestamps()                            // requires the Timestamper plugin
   }
 
   // Webhooks cannot reach this network -- vm-ci is on a private address.
