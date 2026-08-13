@@ -74,6 +74,21 @@ pipeline {
         sh 'docker push $IMAGE:$TAG && docker push $IMAGE:latest'
       }
     }
+
+    stage('Deploy to vm-app') {
+      steps {
+        sshagent(credentials: ['vm-app-08']) {
+          sh '''
+            ssh -o StrictHostKeyChecking=accept-new ubuntu@192.168.3.108 "
+              docker pull $IMAGE:$TAG &&
+              (docker rm -f juice-shop 2>/dev/null || true) &&
+              docker run -d --name juice-shop --restart=unless-stopped \
+                -p 3000:3000 $IMAGE:$TAG
+            "
+          '''
+        }
+      }
+    }
   }
 
   post {
