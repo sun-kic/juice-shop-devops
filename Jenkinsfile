@@ -27,6 +27,38 @@ pipeline {
       }
     }
 
+    stage('Smoke test') {
+      steps {
+        sh '''
+          test_name="juice-shop-smoke-${BUILD_NUMBER}"
+          trap 'docker rm -f "$test_name" >/dev/null 2>&1 || true' EXIT
+          docker run -d --name "$test_name" "$IMAGE:$TAG"
+          for attempt in $(seq 1 30); do
+            if docker run --rm --network "container:$test_name" node:24 \
+              node -e "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo 'Smoke test failed: application did not return HTTP 200 within 30 seconds' >&2
+          exit 1
+        '''
+      }
+    }
+
+    stage('SAST') {
+      steps {
+        // Fails the build on high or critical findings.
+        // Measured on Juice Shop v20.1.1: 47 findings, 7 critical, 22 high -> exit 1.
+        sh '''
+          sast_image="$IMAGE:sast-$BUILD_NUMBER"
+          trap 'docker image rm -f "$sast_image" >/dev/null 2>&1 || true' EXIT
+          docker build --target installer -t "$sast_image" .
+          docker run --rm "$sast_image" npm audit --audit-level=high
+        '''
+      }
+    }
+
     stage('Push') {
       steps {
         sh 'docker push $IMAGE:$TAG && docker push $IMAGE:latest'
@@ -35,6 +67,9 @@ pipeline {
   }
 
   post {
+    failure {
+      echo 'Pipeline failed. For Juice Shop at the SAST stage, this is the expected result.'
+    }
     always {
       sh 'docker image prune -f --filter "until=24h" || true'
     }
